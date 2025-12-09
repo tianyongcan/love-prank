@@ -2,153 +2,131 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>天机神算 - AI批八字</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Merry Christmas & My Secret</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap');
-
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #050505; 
-            font-family: 'Noto Serif SC', serif; /* 宋体风格 */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at center bottom, #1b2735 0%, #090a0f 100%);
+            font-family: 'Arial', sans-serif;
+            touch-action: none;
         }
-        canvas { display: block; }
         
         /* UI 层 */
         #ui-layer {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
             z-index: 10;
-            background: radial-gradient(circle, rgba(20,20,20,0.8) 0%, rgba(0,0,0,1) 100%);
-            transition: opacity 1s;
         }
 
-        /* 标题样式 */
-        h1 {
-            color: #d4af37; /* 香槟金 */
-            font-family: 'Ma Shan Zheng', cursive; /* 毛笔字体 */
-            font-size: 3.5rem;
-            margin-bottom: 10px;
-            text-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
-            letter-spacing: 5px;
-        }
-
-        p.subtitle {
-            color: #888;
-            font-size: 1rem;
-            margin-bottom: 30px;
-            letter-spacing: 2px;
-        }
-
-        /* 表单样式 */
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            width: 300px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 30px;
-            border: 1px solid #d4af37;
-            border-radius: 4px;
-            box-shadow: 0 0 20px rgba(212, 175, 55, 0.1);
-        }
-
-        input, select {
-            background: transparent;
-            border: none;
-            border-bottom: 1px solid #666;
-            color: #fff;
-            padding: 10px;
-            font-family: 'Noto Serif SC', serif;
-            font-size: 1.1rem;
-            outline: none;
+        #header {
+            margin-top: 30px;
             text-align: center;
         }
 
-        input::placeholder { color: #555; }
+        h1 {
+            color: #fff;
+            font-family: 'Cinzel', serif; /* 可以引入谷歌字体 */
+            font-weight: 300;
+            font-size: 3rem;
+            text-shadow: 0 0 15px rgba(255,215,0, 0.6), 0 0 30px rgba(255,0,0, 0.4);
+            letter-spacing: 5px;
+            margin: 0;
+        }
         
-        input:focus {
-            border-bottom: 1px solid #d4af37;
-            box-shadow: 0 5px 10px -5px rgba(212, 175, 55, 0.3);
+        p.hint {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            margin-top: 10px;
         }
 
-        /* 按钮 */
-        #startBtn {
-            margin-top: 20px;
-            padding: 12px;
-            background: #d4af37;
-            color: #000;
+        /* 纸条内容层 (默认隐藏) */
+        #paper-message {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 300px;
+            min-height: 400px;
+            /* 这里不直接用背景色，而是靠粒子支撑，用一点阴影增加层次 */
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            text-align: center;
+            pointer-events: none; /* 让鼠标穿透到 Three.js */
+            opacity: 0;
+            transition: all 1s ease-in-out;
+            z-index: 20;
+        }
+        
+        /* 纸条显现时的状态 */
+        #paper-message.active {
+            display: flex;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #message-text {
+            color: #fff;
+            font-size: 1.5rem;
+            line-height: 2;
             font-weight: bold;
-            font-size: 1.2rem;
-            border: none;
-            cursor: pointer;
-            font-family: 'Ma Shan Zheng', cursive;
-            transition: all 0.3s;
-            position: relative;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            /* 打字机效果光标 */
+            border-right: 2px solid rgba(255,255,255,0.8);
+            white-space: pre-wrap;
             overflow: hidden;
         }
 
-        #startBtn:hover {
-            background: #f1c40f;
-            box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
-            transform: scale(1.02);
+        #close-btn {
+            pointer-events: auto;
+            margin-top: 30px;
+            padding: 8px 20px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.8);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 0.9rem;
         }
-
-        /* 结果展示文字 */
-        #result-overlay {
-            position: absolute;
-            bottom: 15%;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 1s;
-        }
-        
-        #result-text {
-            color: #d4af37;
-            font-size: 2rem;
-            font-family: 'Ma Shan Zheng', cursive;
-            text-shadow: 2px 2px 4px #000;
-        }
-
-        /* 隐藏类 */
-        .hidden {
-            opacity: 0;
-            pointer-events: none;
+        #close-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: #fff;
+            color: #fff;
         }
 
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
     <div id="ui-layer">
-        <h1>天机神算</h1>
-        <p class="subtitle">AI易经 · 大数据八字 · 赛博算命</p>
-        
-        <div class="input-group">
-            <input type="text" id="name" placeholder="请输入施主尊姓大名" autocomplete="off">
-            <input type="text" placeholder="生辰 (例如: 1998年)" autocomplete="off">
-            
-            <button id="startBtn">开始批命</button>
+        <div id="header">
+            <h1>Merry Christmas</h1>
+            <p class="hint">在这棵树里，藏着我对你的心意 (试着旋转和寻找发光的礼物)</p>
         </div>
-        <p style="color:#444; font-size:12px; margin-top:20px;">*泄漏天机，概不负责*</p>
     </div>
 
-    <div id="result-overlay">
-        <div id="result-text"></div>
+    <div id="paper-message">
+        <div id="message-text"></div>
+        <button id="close-btn">收起信件</button>
     </div>
 
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "gsap": "https://unpkg.com/gsap@3.12.5/index.js"
             }
         }
     </script>
@@ -156,186 +134,415 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import gsap from 'gsap';
 
-        // --- 配置 ---
-        const CONFIG = {
-            particleCount: 10000,
-            particleSize: 0.2,
-            color: '#d4af37' // 金色
-        };
-
-        // --- 场景初始化 ---
+        // --- 场景设置 ---
         const scene = new THREE.Scene();
-        // 添加一点迷雾，增加玄学感
-        scene.fog = new THREE.FogExp2(0x050505, 0.03);
+        // 添加迷雾营造冬日氛围
+        scene.fog = new THREE.FogExp2(0x090a0f, 0.008);
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 25;
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 80, 350); // 初始视角稍微仰视
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // 开启 toneMapping 让发光效果更好
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 + 0.2; // 限制不能钻到地底太多
+        controls.minDistance = 100;
+        controls.maxDistance = 600;
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 1.0; // 缓慢旋转
+        controls.autoRotateSpeed = 0.5;
 
-        // --- 粒子系统 ---
-        let particles;
-        let positions = [];
-        let targetPositions = [];
-        const geometry = new THREE.BufferGeometry();
-
-        // 1. 初始化粒子（先让它们在屏幕外乱飞）
-        for (let i = 0; i < CONFIG.particleCount * 3; i++) {
-            positions.push((Math.random() - 0.5) * 200); 
-        }
-
-        // 2. 初始形状：生成一个“太极”图案 (☯)
-        const taiChiPoints = getTextPoints("☯", 1.0); 
-        targetPositions = Float32Array.from(taiChiPoints);
-
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-        const material = new THREE.PointsMaterial({
-            color: CONFIG.color,
-            size: CONFIG.particleSize,
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-
-        // --- 核心函数：把文字变成粒子坐标 ---
-        function getTextPoints(text, scaleFactor = 1.0) {
+        // --- 工具函数：生成简易的圣诞元素纹理 ---
+        // 在实际项目中，建议用 Photoshop 做好好看的 PNG 图片代替这里
+        function createTexture(type) {
             const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
             const ctx = canvas.getContext('2d');
-            canvas.width = 256;
-            canvas.height = 256;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = '40px sans-serif';
+            // 绘制 emoji
+            if(type === 'snow') ctx.fillText('❄️', 32, 32);
+            if(type === 'star') ctx.fillText('🌟', 32, 32);
+            if(type === 'gift') ctx.fillText('🎁', 32, 32);
             
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 160px "Ma Shan Zheng", "KaiTi", serif'; // 使用毛笔字体
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, 128, 128);
-
-            const imageData = ctx.getImageData(0, 0, 256, 256);
-            const data = imageData.data;
-            const validPixels = [];
-
-            for (let y = 0; y < 256; y += 2) {
-                for (let x = 0; x < 256; x += 2) {
-                    if (data[(y * 256 + x) * 4] > 100) {
-                        validPixels.push({x, y});
-                    }
-                }
-            }
-
-            const points = [];
-            for (let i = 0; i < CONFIG.particleCount; i++) {
-                if (validPixels.length > 0) {
-                    const pixel = validPixels[Math.floor(Math.random() * validPixels.length)];
-                    // 坐标映射
-                    points.push((pixel.x - 128) * 0.15 * scaleFactor);
-                    points.push(-(pixel.y - 128) * 0.15 * scaleFactor); 
-                    points.push((Math.random() - 0.5) * 2); // 稍微有点厚度
-                } else {
-                    // 多余的粒子让它在背景里飘
-                    points.push((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100);
-                }
-            }
-            return points;
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
         }
 
-        // --- 交互逻辑 ---
-        const startBtn = document.getElementById('startBtn');
-        const uiLayer = document.getElementById('ui-layer');
-        const nameInput = document.getElementById('name');
-        const resultOverlay = document.getElementById('result-overlay');
-        const resultText = document.getElementById('result-text');
+        const textures = {
+            snow: createTexture('snow'),
+            star: createTexture('star'),
+            gift: createTexture('gift')
+        };
 
-        // 恶搞结果词库
-        const prankResults = [
-            { word: "穷", desc: "命犯穷神，五行缺金，建议吃土" },
-            { word: "冤种", desc: "天选打工人，纯正大冤种" },
-            { word: "单身", desc: "月老把你的红绳拿去织毛裤了" },
-            { word: "海王", desc: "不仅想得美，鱼塘还挺大" },
-            { word: "舔狗", desc: "深情如果不被辜负，那还能叫深情吗？" },
-            { word: "躺平", desc: "只要躺得足够平，镰刀就割不到你" }
+        // --- 核心：圣诞树粒子系统 ---
+        const treeConfig = {
+            count: 4000,
+            height: 250,
+            radius: 100,
+            specialCount: 5 // 藏几个特殊的“礼物”粒子
+        };
+
+        const treeGeometry = new THREE.BufferGeometry();
+        const treePositions = new Float32Array(treeConfig.count * 3);
+        const treeTargetPositions = new Float32Array(treeConfig.count * 3); // 用于变形的目标位置
+        const treeSizes = new Float32Array(treeConfig.count);
+        const treeColors = new Float32Array(treeConfig.count * 3);
+        const treeTypes = new Float32Array(treeConfig.count); // 存储纹理类型索引
+
+        const colorPalette = [
+            new THREE.Color('#ffffff'), // 白雪
+            new THREE.Color('#f1c40f'), // 金星
+            new THREE.Color('#e74c3c'), // 红礼物
+            new THREE.Color('#2ecc71')  // 绿叶色
         ];
 
-        startBtn.addEventListener('click', () => {
-            const name = nameInput.value.trim();
-            if (!name) {
-                alert("施主，姓名都不留，天机不可泄露啊");
-                return;
-            }
-
-            // 1. 隐藏表单
-            uiLayer.classList.add('hidden');
+        for (let i = 0; i < treeConfig.count; i++) {
+            const i3 = i * 3;
+            // 圣诞树算法：螺旋向上并缩小半径
+            const angle = (i / treeConfig.count) * Math.PI * 40 + Math.random() * 0.5;
+            const heightRatio = i / treeConfig.count; // 0 到 1
+            const currentRadius = treeConfig.radius * (1 - heightRatio) + Math.random() * 10;
             
-            // 2. 加速粒子旋转，模拟算命计算
-            controls.autoRotateSpeed = 20.0;
+            const x = Math.cos(angle) * currentRadius;
+            const y = heightRatio * treeConfig.height - treeConfig.height / 2;
+            const z = Math.sin(angle) * currentRadius;
 
-            // 3. 2.5秒后出结果
+            // 初始位置
+            treePositions[i3] = x + (Math.random() - 0.5) * 20;
+            treePositions[i3+1] = y + (Math.random() - 0.5) * 20;
+            treePositions[i3+2] = z + (Math.random() - 0.5) * 20;
+            
+            // 记录树形态的位置
+            treeTargetPositions[i3] = treePositions[i3];
+            treeTargetPositions[i3+1] = treePositions[i3+1];
+            treeTargetPositions[i3+2] = treePositions[i3+2];
+
+            // 大小和颜色
+            treeSizes[i] = Math.random() * 3 + 2;
+            const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+            treeColors[i3] = color.r; treeColors[i3+1] = color.g; treeColors[i3+2] = color.b;
+
+            // 分配纹理类型 (大部分是雪花，少部分星星，极少礼物)
+            const rand = Math.random();
+            if (rand > 0.95) treeTypes[i] = 2; // gift
+            else if (rand > 0.85) treeTypes[i] = 1; // star
+            else treeTypes[i] = 0; // snow
+        }
+
+        treeGeometry.setAttribute('position', new THREE.BufferAttribute(treePositions, 3));
+        treeGeometry.setAttribute('size', new THREE.BufferAttribute(treeSizes, 1));
+        treeGeometry.setAttribute('color', new THREE.BufferAttribute(treeColors, 3));
+        treeGeometry.setAttribute('type', new THREE.BufferAttribute(treeTypes, 1));
+
+        // 自定义着色器材质 (为了支持不同纹理贴图和发光)
+        const treeMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 },
+                uTexSnow: { value: textures.snow },
+                uTexStar: { value: textures.star },
+                uTexGift: { value: textures.gift },
+                uMouse: { value: new THREE.Vector3(9999,9999,9999) } // 鼠标互动位置
+            },
+            vertexShader: `
+                attribute float size;
+                attribute vec3 color;
+                attribute float type;
+                varying vec3 vColor;
+                varying float vType;
+                uniform float uTime;
+                uniform vec3 uMouse;
+
+                void main() {
+                    vColor = color;
+                    vType = type;
+                    vec3 pos = position;
+                    
+                    // 简易的鼠标斥力效果
+                    float dist = distance(pos, uMouse);
+                    float force = smoothstep(100.0, 0.0, dist);
+                    vec3 dir = normalize(pos - uMouse);
+                    pos += dir * force * 30.0;
+
+                    // 轻微的呼吸浮动
+                    pos.y += sin(uTime * 2.0 + pos.x * 0.05) * 2.0;
+
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    // 距离相机越近越大
+                    gl_PointSize = size * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D uTexSnow;
+                uniform sampler2D uTexStar;
+                uniform sampler2D uTexGift;
+                varying vec3 vColor;
+                varying float vType;
+
+                void main() {
+                    vec4 texColor;
+                    // 根据类型选择纹理
+                    if(vType < 0.5) texColor = texture2D(uTexSnow, gl_PointCoord);
+                    else if(vType < 1.5) texColor = texture2D(uTexStar, gl_PointCoord);
+                    else texColor = texture2D(uTexGift, gl_PointCoord);
+
+                    if (texColor.a < 0.5) discard; // 透明剔除
+
+                    // 颜色叠加并增加一点发光感
+                    gl_FragColor = vec4(vColor * texColor.rgb * 1.5, texColor.a);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+
+        const tree = new THREE.Points(treeGeometry, treeMaterial);
+        scene.add(tree);
+
+        // --- 特殊交互点 (藏在树里的秘密) ---
+        const specialPoints = [];
+        const specialMaterial = new THREE.SpriteMaterial({ 
+            map: textures.gift, 
+            color: 0xffd700, // 金色
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthTest: false // 确保它总能被看见
+        });
+
+        for(let i=0; i<treeConfig.specialCount; i++) {
+            const idx = Math.floor(Math.random() * treeConfig.count) * 3;
+            const sprite = new THREE.Sprite(specialMaterial);
+            // 放在树的表面位置
+            sprite.position.set(treeTargetPositions[idx], treeTargetPositions[idx+1], treeTargetPositions[idx+2]);
+            sprite.scale.set(15, 15, 1); // 比普通粒子大
+            sprite.userData.isSecret = true; // 标记
+            scene.add(sprite);
+            specialPoints.push(sprite);
+        }
+
+
+        // --- 背景雪花系统 (营造氛围) ---
+        const snowGeo = new THREE.BufferGeometry();
+        const snowPos = new Float32Array(2000 * 3);
+        const snowVel = new Float32Array(2000); // 下落速度
+        for(let i=0; i<2000; i++) {
+            snowPos[i*3] = (Math.random()-0.5)*1000;
+            snowPos[i*3+1] = Math.random()*1000 - 500;
+            snowPos[i*3+2] = (Math.random()-0.5)*1000;
+            snowVel[i] = Math.random() * 1 + 0.5;
+        }
+        snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+        const snowMat = new THREE.PointsMaterial({
+            size: 4, map: textures.snow, transparent: true, opacity: 0.6, depthWrite:false
+        });
+        const snowSystem = new THREE.Points(snowGeo, snowMat);
+        scene.add(snowSystem);
+
+
+        // --- 交互与动画逻辑 ---
+        let isPaperMode = false;
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const plane = new THREE.Plane(new THREE.Vector3(0,0,1), 0); // 用于鼠标互动计算的平面
+
+        // 表白内容 (在这里修改！)
+        const messages = [
+            "Merry Christmas, my dear.",
+            "这棵树很美，但不如你万分之一。",
+            "不需要圣诞老人，",
+            "因为你就是我最好的礼物。",
+            "未来的每一个圣诞节，",
+            "我都想和你一起看雪。",
+            "❤ 爱你的 [你的名字] ❤"
+        ];
+        const paperMessage = document.getElementById('paper-message');
+        const messageText = document.getElementById('message-text');
+        const closeBtn = document.getElementById('close-btn');
+
+        // 打字机效果
+        function typeWriter(textArray, element) {
+            element.innerHTML = '';
+            let lineIndex = 0;
+            let charIndex = 0;
+            
+            function type() {
+                if (lineIndex < textArray.length) {
+                    if (charIndex < textArray[lineIndex].length) {
+                        element.innerHTML += textArray[lineIndex].charAt(charIndex);
+                        charIndex++;
+                        setTimeout(type, 100); // 打字速度
+                    } else {
+                        element.innerHTML += '<br>'; // 换行
+                        lineIndex++;
+                        charIndex = 0;
+                        setTimeout(type, 500); // 换行停顿
+                    }
+                } else {
+                     element.style.borderRight = 'none'; // 结束移除光标
+                }
+            }
+            type();
+        }
+
+        // 点击事件：寻找秘密
+        window.addEventListener('click', (e) => {
+            if(isPaperMode) return; // 如果已经是信纸模式，不处理
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(specialPoints);
+
+            if(intersects.length > 0) {
+                // 找到了！开始变形
+                transformToPaper();
+            }
+        });
+
+        // 核心动画：从树变成纸条
+        function transformToPaper() {
+            isPaperMode = true;
+            controls.autoRotate = false;
+            controls.enableRotate = false; // 禁止旋转
+            
+            // 隐藏特殊点和标题
+            specialPoints.forEach(p => p.visible = false);
+            gsap.to('#header', { opacity: 0, duration: 1 });
+
+            // 1. 计算纸条的形态 (一个长方形平面)
+            const paperWidth = 180; 
+            const paperHeight = 260;
+            const cols = 50;
+            const rows = Math.floor(treeConfig.count / cols);
+
+            for(let i=0; i<treeConfig.count; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                // 将粒子排列成纸张平面
+                const x = (col / cols - 0.5) * paperWidth;
+                const y = (row / rows - 0.5) * paperHeight;
+                const z = (Math.random() - 0.5) * 5; // 稍微有点厚度
+
+                // 使用 GSAP 将每个粒子移动到新的位置
+                gsap.to(treePositions, {
+                    [i*3]: x,
+                    [i*3+1]: y,
+                    [i*3+2]: z,
+                    duration: 2.5 + Math.random(), // 随机时间增加动感
+                    ease: "power3.inOut",
+                    onUpdate: () => {
+                        treeGeometry.attributes.position.needsUpdate = true;
+                    }
+                });
+                // 统一颜色为金色，并变小
+                 gsap.to(treeSizes, {[i]: 1.5, duration: 2});
+                 gsap.to(treeColors, {[i*3]: 1.0, [i*3+1]: 0.84, [i*3+2]: 0.0, duration: 2});
+            }
+            treeGeometry.attributes.size.needsUpdate = true;
+            treeGeometry.attributes.color.needsUpdate = true;
+
+            // 相机移动到正面
+            gsap.to(camera.position, { x: 0, y: 0, z: 300, duration: 2 });
+            gsap.to(camera.rotation, { x: 0, y: 0, z: 0, duration: 2 });
+
+            // 显示 DOM 纸条内容
             setTimeout(() => {
-                // 随机选一个恶搞词
-                const fate = prankResults[Math.floor(Math.random() * prankResults.length)];
-                
-                // 粒子重组为那个字
-                const newPoints = getTextPoints(fate.word, 1.2); 
-                targetPositions = Float32Array.from(newPoints);
-
-                // 颜色变红
-                material.color.set('#ff3333'); 
-                
-                // 恢复旋转速度
-                controls.autoRotateSpeed = 2.0;
-
-                // 显示文字解析
-                resultOverlay.style.opacity = 1;
-                resultText.innerHTML = `
-                    <div style="font-size: 1.5rem; margin-bottom:10px;">${name} 的命格：</div>
-                    <div style="font-size: 1rem; color: #fff;">${fate.desc}</div>
-                `;
-
+                paperMessage.classList.add('active');
+                typeWriter(messages, messageText);
             }, 2500);
+        }
+
+        // 收起信件，变回圣诞树
+        closeBtn.addEventListener('click', () => {
+             isPaperMode = false;
+             paperMessage.classList.remove('active');
+             messageText.innerHTML = ''; 
+             messageText.style.borderRight = '2px solid rgba(255,255,255,0.8)';
+             gsap.to('#header', { opacity: 1, duration: 1, delay: 2 });
+
+             // 粒子归位
+             for(let i=0; i<treeConfig.count; i++) {
+                 gsap.to(treePositions, {
+                    [i*3]: treeTargetPositions[i*3],
+                    [i*3+1]: treeTargetPositions[i*3+1],
+                    [i*3+2]: treeTargetPositions[i*3+2],
+                    duration: 2 + Math.random(),
+                    ease: "elastic.out(1, 0.5)", // 弹簧效果归位
+                    onUpdate: () => {
+                        treeGeometry.attributes.position.needsUpdate = true;
+                    }
+                 });
+                 // 恢复大小和颜色 (这里简单处理，恢复随机色和大小)
+                 gsap.to(treeSizes, {[i]: Math.random() * 3 + 2, duration: 2});
+                 const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+                 gsap.to(treeColors, {[i*3]: color.r, [i*3+1]: color.g, [i*3+2]: color.b, duration: 2});
+             }
+             treeGeometry.attributes.size.needsUpdate = true;
+             treeGeometry.attributes.color.needsUpdate = true;
+
+             setTimeout(() => {
+                 specialPoints.forEach(p => p.visible = true);
+                 controls.enableRotate = true;
+                 controls.autoRotate = true;
+             }, 2500);
+        });
+
+
+        // 鼠标移动事件 (用于扰动粒子)
+        window.addEventListener('mousemove', (e) => {
+            if(isPaperMode) return;
+            // 计算鼠标在 3D 世界中的投影位置
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, intersectPoint);
+            treeMaterial.uniforms.uMouse.value = intersectPoint;
         });
 
         // --- 动画循环 ---
         const clock = new THREE.Clock();
-        
         function animate() {
-            requestAnimationFrame(animate);
-            
             const time = clock.getElapsedTime();
-            const currentPositions = geometry.attributes.position.array;
+            treeMaterial.uniforms.uTime.value = time;
 
-            for (let i = 0; i < CONFIG.particleCount; i++) {
-                const i3 = i * 3;
-                // 插值动画
-                currentPositions[i3] += (targetPositions[i3] - currentPositions[i3]) * 0.08;
-                currentPositions[i3+1] += (targetPositions[i3+1] - currentPositions[i3+1]) * 0.08;
-                currentPositions[i3+2] += (targetPositions[i3+2] - currentPositions[i3+2]) * 0.08;
-                
-                // 增加一点神秘的漂浮感
-                currentPositions[i3+1] += Math.sin(time * 3 + currentPositions[i3]) * 0.005;
+            // 特殊点闪烁
+            if(!isPaperMode) {
+                specialPoints.forEach((p, i) => {
+                    p.scale.setScalar(15 + Math.sin(time*3 + i)*3);
+                    p.material.opacity = 0.8 + Math.sin(time*3 + i)*0.2;
+                });
             }
-            
-            geometry.attributes.position.needsUpdate = true;
+
+            // 雪花下落更新
+            const snowPositions = snowGeo.attributes.position.array;
+            for(let i=0; i<2000; i++) {
+                snowPositions[i*3+1] -= snowVel[i];
+                if(snowPositions[i*3+1] < -500) snowPositions[i*3+1] = 500; // 循环
+            }
+            snowGeo.attributes.position.needsUpdate = true;
+
             controls.update();
             renderer.render(scene, camera);
+            requestAnimationFrame(animate);
         }
 
         animate();
 
+        // 窗口适配
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();

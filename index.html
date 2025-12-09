@@ -2,148 +2,359 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>有一封信给你...</title>
+    <title>3D Particle System</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #ffe6e6; /* 浪漫粉色背景 */
-            font-family: 'Microsoft YaHei', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Arial', sans-serif; }
+        canvas { display: block; }
+        /* 简单的加载提示 */
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-size: 14px; pointer-events: none; transition: opacity 0.5s;
         }
-
-        h1 {
-            color: #ff4d4d;
-            font-size: 3rem;
-            margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        /* 恶搞时的覆盖层（可选） */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: none;
+            box-shadow: inset 0 0 100px red;
+            z-index: 10;
         }
-
-        p {
-            color: #666;
-            font-size: 1.2rem;
-            margin-bottom: 40px;
-        }
-
-        .btn-container {
-            position: relative;
-            width: 100%;
-            height: 200px;
-            text-align: center;
-        }
-
-        button {
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: absolute; /* 为了让按钮能跑，必须用绝对定位 */
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        /* 同意按钮 */
-        #yesBtn {
-            background-color: #ff4d4d;
-            color: white;
-            left: 50%;
-            transform: translateX(-140%); /* 放在左边 */
-        }
-
-        #yesBtn:hover {
-            background-color: #ff1a1a;
-            transform: translateX(-140%) scale(1.1);
-        }
-
-        /* 拒绝按钮 */
-        #noBtn {
-            background-color: #ffffff;
-            color: #333;
-            left: 50%;
-            transform: translateX(40%); /* 放在右边 */
-        }
-
-        /* 恶搞结果弹窗 */
-        #result {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            text-align: center;
-        }
-        
-        #result h2 {
-            font-size: 3rem;
-            margin-bottom: 20px;
-        }
-        
-        #result img {
-            max-width: 300px;
-            border-radius: 10px;
-        }
-
     </style>
 </head>
 <body>
+    <div id="loading">正在加载粒子引擎...</div>
+    <div id="overlay"></div>
 
-    <h1>小姐姐/小哥哥，我喜欢你很久了</h1>
-    <p>（请遵从你的内心做出选择）</p>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.min.js"
+            }
+        }
+    </script>
 
-    <div class="btn-container">
-        <button id="yesBtn">我也喜欢你 ❤</button>
-        <button id="noBtn">不喜欢，滚</button>
-    </div>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import GUI from 'lil-gui';
 
-    <div id="result">
-        <h2>哈哈哈！我就知道！</h2>
-        <p>既然同意了，那V我50吃肯德基不过分吧？</p>
-        <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5Z3Z5/pZn8e9r2Qq1J6/giphy.gif" alt="Funny Dog">
-    </div>
+        // --- 配置区 ---
+        const CONFIG = {
+            particleCount: 15000,
+            particleSize: 0.15,
+            color: '#00ffff',
+            bloom: true,
+            mouseInteraction: true,
+            model: 'galaxy' // 初始模型
+        };
 
-    <script>
-        const noBtn = document.getElementById('noBtn');
-        const yesBtn = document.getElementById('yesBtn');
-        const result = document.getElementById('result');
+        // --- 场景初始化 ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
-        // 核心：让“不喜欢”按钮到处乱跑
-        noBtn.addEventListener('mouseover', function() {
-            const x = Math.random() * (window.innerWidth - 100);
-            const y = Math.random() * (window.innerHeight - 100);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 30;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // --- 粒子系统核心 ---
+        let particles;
+        let positions = [];
+        let targetPositions = []; // 目标形状的位置数据
+        let speeds = []; // 粒子移动速度
+        
+        const geometry = new THREE.BufferGeometry();
+        
+        // 初始化粒子位置（随机分布）
+        for (let i = 0; i < CONFIG.particleCount; i++) {
+            positions.push((Math.random() - 0.5) * 100);
+            positions.push((Math.random() - 0.5) * 100);
+            positions.push((Math.random() - 0.5) * 100);
+            speeds.push(Math.random() * 0.05 + 0.02);
+        }
+        
+        // 填充 Buffer
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        targetPositions = Float32Array.from(positions); // 初始目标就是当前位置
+
+        // 材质
+        const material = new THREE.PointsMaterial({
+            color: CONFIG.color,
+            size: CONFIG.particleSize,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // --- 形状生成算法 (Math & Canvas) ---
+
+        // 1. 球体/星系
+        function getGalaxyPoints() {
+            const points = [];
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos((Math.random() * 2) - 1);
+                const r = 10 + Math.random() * 2;
+                points.push(r * Math.sin(phi) * Math.cos(theta));
+                points.push(r * Math.sin(phi) * Math.sin(theta));
+                points.push(r * Math.cos(phi));
+            }
+            return points;
+        }
+
+        // 2. 爱心 (数学公式)
+        function getHeartPoints() {
+            const points = [];
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                let x, y, z;
+                // 使用拒绝采样法让爱心内部均匀
+                let done = false;
+                while(!done) {
+                    let u = (Math.random() * 2 - 1) * 2; // x range
+                    let v = (Math.random() * 2 - 1) * 2; // y range
+                    // Heart formula (2D profile rotated or extruded)
+                    // 简化版 3D Heart
+                    const t = Math.random() * Math.PI * 2;
+                    // x = 16sin^3(t)
+                    // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
+                    // z = random thickness
+                    
+                    // 这种只是线框，我们用随机填充
+                     x = (Math.random() - 0.5) * 4;
+                     y = (Math.random() - 0.5) * 4;
+                     z = (Math.random() - 0.5) * 4;
+                     
+                     // 简单爱心方程检测
+                     // (x^2 + 9/4y^2 + z^2 - 1)^3 - x^2z^3 - 9/80y^2z^3 < 0
+                     // 调整缩放
+                     const x2 = x * 1.5; 
+                     const y2 = y * 1.5;
+                     const z2 = z * 1.5;
+                     
+                     const a = x2*x2 + 2.25*y2*y2 + z2*z2 - 1;
+                     if (a*a*a - x2*x2*z2*z2*z2 - 0.1125*y2*y2*z2*z2*z2 <= 0) {
+                         points.push(x * 10, y * 10, z * 10);
+                         done = true;
+                     }
+                }
+                if(points.length >= CONFIG.particleCount * 3) break;
+            }
+            // 补齐不足的点
+            while(points.length < CONFIG.particleCount * 3) {
+                points.push(0,0,0);
+            }
+            return points;
+        }
+
+        // 3. 土星 (球体 + 环)
+        function getSaturnPoints() {
+            const points = [];
+            const ringCount = Math.floor(CONFIG.particleCount * 0.4);
+            const sphereCount = CONFIG.particleCount - ringCount;
+
+            // 本体
+            for(let i=0; i<sphereCount; i++){
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos((Math.random() * 2) - 1);
+                const r = 6;
+                points.push(r * Math.sin(phi) * Math.cos(theta));
+                points.push(r * Math.sin(phi) * Math.sin(theta));
+                points.push(r * Math.cos(phi));
+            }
+            // 环
+            for(let i=0; i<ringCount; i++){
+                const angle = Math.random() * Math.PI * 2;
+                const r = 10 + Math.random() * 6; // Ring radius
+                points.push(r * Math.cos(angle));
+                points.push((Math.random()-0.5) * 0.5); // Flat ring
+                points.push(r * Math.sin(angle));
+            }
+            return points;
+        }
+
+        // 4. 文字/图片粒子化 (核心恶搞功能)
+        // 将文字渲染到 canvas，读取像素，转换为粒子坐标
+        function getTextPoints(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 200;
+            canvas.height = 200;
             
-            // 改变按钮位置
-            noBtn.style.left = x + 'px';
-            noBtn.style.top = y + 'px';
-            noBtn.style.transform = 'none'; // 取消居中偏移
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 200, 200);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 120px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 100, 100);
+
+            const imageData = ctx.getImageData(0, 0, 200, 200);
+            const data = imageData.data;
+            const validPixels = [];
+
+            for (let y = 0; y < 200; y += 2) { // 采样步长
+                for (let x = 0; x < 200; x += 2) {
+                    if (data[(y * 200 + x) * 4] > 128) {
+                        validPixels.push({x, y});
+                    }
+                }
+            }
+
+            const points = [];
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                // 从有效像素中随机取一个
+                const pixel = validPixels[Math.floor(Math.random() * validPixels.length)];
+                // 映射到 3D 空间
+                if (pixel) {
+                    points.push((pixel.x - 100) * 0.15);
+                    points.push(-(pixel.y - 100) * 0.15); // Y轴翻转
+                    points.push((Math.random() - 0.5) * 2); // 稍微有点厚度
+                } else {
+                    points.push((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50);
+                }
+            }
+            return points;
+        }
+
+        // --- 交互逻辑 ---
+        
+        const models = {
+            '星系 (Galaxy)': getGalaxyPoints,
+            '破碎的心 (Heart)': getHeartPoints,
+            '土星 (Saturn)': getSaturnPoints,
+            // 恶搞入口：名字起得特别高大上
+            '✨ 灵魂投影 (AI Scan)': () => getTextPoints("🤡"), // 这里可以改成 "SB" 或 "穷"
+            '关于作者 (About)': () => getTextPoints("帅") 
+        };
+
+        function switchModel(name) {
+            const generator = models[name];
+            if (generator) {
+                const newPos = generator();
+                targetPositions = Float32Array.from(newPos);
+                
+                // 恶搞特效：如果是小丑，把颜色改成红色
+                if (name === '✨ 灵魂投影 (AI Scan)') {
+                    CONFIG.color = '#ff0000'; // 警示红
+                    CONFIG.particleSize = 0.25; // 变大
+                    material.size = 0.25;
+                    material.color.set('#ff0000');
+                    document.getElementById('overlay').style.display = 'block'; // 开启红色警报氛围
+                    setTimeout(() => { document.getElementById('overlay').style.display = 'none'; }, 500);
+                } else {
+                    material.color.set(CONFIG.color); // 恢复颜色
+                }
+            }
+        }
+
+        // --- 鼠标交互 ---
+        const mouse = new THREE.Vector2();
+        const raycaster = new THREE.Raycaster();
+        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         });
 
-        // 手机端触摸也要跑（防止手机用户直接点到）
-        noBtn.addEventListener('touchstart', function(e) {
-            e.preventDefault(); // 防止点击
-            const x = Math.random() * (window.innerWidth - 100);
-            const y = Math.random() * (window.innerHeight - 100);
-            noBtn.style.left = x + 'px';
-            noBtn.style.top = y + 'px';
-            noBtn.style.transform = 'none';
+        // --- GUI 面板 ---
+        const gui = new GUI({ title: '3D 粒子控制台' });
+        
+        gui.add(CONFIG, 'model', Object.keys(models)).name('选择模型').onChange(switchModel);
+        
+        gui.addColor(CONFIG, 'color').name('粒子颜色').onChange(c => {
+            material.color.set(c);
+        });
+        
+        gui.add(CONFIG, 'particleSize', 0.01, 0.5).name('粒子大小').onChange(s => {
+            material.size = s;
         });
 
-        // 点击“喜欢”后的效果
-        yesBtn.addEventListener('click', function() {
-            result.style.display = 'flex';
+        const folder = gui.addFolder('高级设置');
+        folder.add(CONFIG, 'mouseInteraction').name('鼠标扰动');
+        
+        const btn = {
+            fullscreen: () => {
+                if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+                else document.exitFullscreen();
+            }
+        };
+        gui.add(btn, 'fullscreen').name('全屏沉浸');
+
+        // --- 动画循环 ---
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const time = clock.getElapsedTime();
+            const positionsAttribute = geometry.attributes.position;
+            const currentPositions = positionsAttribute.array;
+
+            // 鼠标射线检测（用于扰动）
+            raycaster.setFromCamera(mouse, camera);
+            const intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, intersectPoint);
+
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                const i3 = i * 3;
+
+                // 1. 目标位置插值 (Morphing)
+                // 简单的缓动算法：当前位置 += (目标位置 - 当前位置) * 速度
+                currentPositions[i3] += (targetPositions[i3] - currentPositions[i3]) * 0.05;
+                currentPositions[i3+1] += (targetPositions[i3+1] - currentPositions[i3+1]) * 0.05;
+                currentPositions[i3+2] += (targetPositions[i3+2] - currentPositions[i3+2]) * 0.05;
+
+                // 2. 噪声漂浮 (呼吸感)
+                currentPositions[i3] += Math.sin(time + currentPositions[i3+1]) * 0.01;
+                currentPositions[i3+1] += Math.cos(time + currentPositions[i3]) * 0.01;
+
+                // 3. 鼠标交互 (斥力)
+                if (CONFIG.mouseInteraction) {
+                    const dx = currentPositions[i3] - intersectPoint.x;
+                    const dy = currentPositions[i3+1] - intersectPoint.y;
+                    const dz = currentPositions[i3+2] - intersectPoint.z; // 3D distance check roughly
+                    
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 5) {
+                        const force = (5 - dist) * 0.5;
+                        currentPositions[i3] += dx * force * 0.1;
+                        currentPositions[i3+1] += dy * force * 0.1;
+                        currentPositions[i3+2] += (Math.random()-0.5) * force; // Z轴乱飞
+                    }
+                }
+            }
+
+            // 整体旋转
+            particles.rotation.y = time * 0.05;
+            
+            positionsAttribute.needsUpdate = true;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('loading').style.opacity = 0;
+        switchModel('星系 (Galaxy)'); // 默认模型
+        animate();
+
+        // 窗口自适应
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
 </body>
